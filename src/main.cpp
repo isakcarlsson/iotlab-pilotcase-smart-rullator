@@ -118,13 +118,16 @@ void hall(void * pvParameters) {
     value = digitalRead(HALL);
 
     if (value == 0) {
-        if (check == 0) {
-            check = 1;
-            cycle++;
-            Serial.printf("cycle:%d\n", cycle);
-            vTaskDelay(pdMS_TO_TICKS(100));
-            distance = cycle * wheel_size;
+      if (check == 0) {
+        if (cycle == 0) {
+          xTaskCreatePinnedToCore(accel, "accel", 4096, NULL, 5, NULL, 0);
         }
+        check = 1;
+        cycle++;
+        Serial.printf("cycle:%d\n", cycle);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        distance = cycle * wheel_size;
+      }
     } 
     else {
       check = 0;
@@ -147,7 +150,6 @@ void setup() {
   acc0[2] = acc[2]; 
   lastTime = millis();
 
-  xTaskCreatePinnedToCore(accel, "accel", 4096, NULL, 5, NULL, 0);
   xTaskCreatePinnedToCore(hall, "hall", 4096, NULL, 5, NULL, 1);
 
 }
