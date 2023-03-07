@@ -54,6 +54,10 @@ void projectVector(float A[], float B[], int n, float C[]) {
   }
 }
 
+void send () {
+  M5.dis.drawpix(0, 0x00ff00);
+}
+
 void accel(void * pvParameters) {
    while (distance < 1000) {
     M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
@@ -105,6 +109,7 @@ void accel(void * pvParameters) {
       }
     }
   }
+  vTaskDelete(NULL);
 }
 
 
@@ -125,11 +130,7 @@ void hall(void * pvParameters) {
       check = 0;
     }
   }
-
-}
-
-void send () {
-  M5.dis.drawpix(0, 0x00ff00);
+  vTaskDelete(NULL);
 }
 
 void setup() {
@@ -150,7 +151,6 @@ void setup() {
   xTaskCreatePinnedToCore(hall, "hall", 4096, NULL, 5, NULL, 1);
 
 }
-
 
 void loop() {
 }
