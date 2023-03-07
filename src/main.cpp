@@ -73,12 +73,16 @@ void detectStep() {
       }
 
       float projection[3] = {0.0f, 0.0f, 0.0f};
+      // Here
       projectVector(prevAcc, acc, 3, projection);
 
+      // Here
       unsigned int angle = round(angleBetweenVectors(acc, prevAcc, 3));
       float projectionMag = magnitude(projection, 3);
       
-      if (angle > 90 && projectionMag > 0.014) {
+      if (angle > 120 && projectionMag > 0.014) {
+        // Here
+        // Serial.printf("Projection: %f\n", projectionMag);
         prevAcc[0] = acc[0];
         prevAcc[1] = acc[1];
         prevAcc[2] = acc[2];   
