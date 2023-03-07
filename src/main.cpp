@@ -47,29 +47,14 @@ void projectVector(float A[], float B[], int n, float C[]) {
   }
 }
 
-void setup(){
-  M5.begin(true, false, true);
-  delay(100);
-  M5.IMU.Init();
-  delay(100);
-  M5.IMU.SetAccelFsr(M5.IMU.AFS_16G);
-  delay(100);
-
-  M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
-  acc0[0] = acc[0];
-  acc0[1] = acc[1];
-  acc0[2] = acc[2]; 
-
-  lastTime = millis();
-}
-
-void loop() {
+void detectStep() {
   M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
   acc[0] = acc[0] - acc0[0];
   acc[1] = acc[1] - acc0[1];
   acc[2] = acc[2] - acc0[2];
   
   if (magnitude(acc, 3) > 0.022) {
+    // Add all measured acceleration to vectors
     vectors[0] = acc[0];
     vectors[1] = acc[1];
     vectors[2] = acc[2];
@@ -112,4 +97,24 @@ void loop() {
       lastTime = millis();
     }
   }
+}
+
+void setup(){
+  M5.begin(true, false, true);
+  delay(100);
+  M5.IMU.Init();
+  delay(100);
+  M5.IMU.SetAccelFsr(M5.IMU.AFS_16G);
+  delay(100);
+
+  M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
+  acc0[0] = acc[0];
+  acc0[1] = acc[1];
+  acc0[2] = acc[2]; 
+
+  lastTime = millis();
+}
+
+void loop() {
+  detectStep();
 }
