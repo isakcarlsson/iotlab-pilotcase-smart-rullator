@@ -5,6 +5,8 @@
 int value = 1;
 int cycle = 0;
 int check = 0;
+int wheel_size = 62;
+int distance = 0;
 
 // sudo chmod a+rw /dev/ttyUSB0
 
@@ -53,7 +55,7 @@ void projectVector(float A[], float B[], int n, float C[]) {
 }
 
 void accel(void * pvParameters) {
-   while (1) {
+   while (distance < 1000) {
     M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
     acc[0] = acc[0] - acc0[0];
     acc[1] = acc[1] - acc0[1];
@@ -83,7 +85,7 @@ void accel(void * pvParameters) {
         unsigned int angle = round(angleBetweenVectors(acc, prevAcc, 3));
         float projectionMag = magnitude(projection, 3);
         
-        if (angle > 90 && projectionMag > 0.014) {
+        if (angle > 120 && projectionMag > 0.014) {
           prevAcc[0] = acc[0];
           prevAcc[1] = acc[1];
           prevAcc[2] = acc[2];   
@@ -95,7 +97,7 @@ void accel(void * pvParameters) {
             Serial.printf("%u steps\n", steps);
           }
         
-          vTaskDelay(pdMS_TO_TICKS(100));
+          vTaskDelay(pdMS_TO_TICKS(200));
         }
 
         vectorCounter = 0;
@@ -107,7 +109,7 @@ void accel(void * pvParameters) {
 
 
 void hall(void * pvParameters) {
-  while (1) {
+  while (distance < 1000) {
     value = digitalRead(HALL);
 
     if (value == 0) {
@@ -116,15 +118,21 @@ void hall(void * pvParameters) {
             cycle++;
             Serial.printf("cycle:%d\n", cycle);
             vTaskDelay(pdMS_TO_TICKS(100));
+            distance = cycle * wheel_size;
         }
     } 
     else {
       check = 0;
     }
   }
+
 }
 
-void setup(){
+void send () {
+  M5.dis.drawpix(0, 0x00ff00);
+}
+
+void setup() {
   M5.begin(true,false,true);
   delay(100);
   M5.IMU.Init();
