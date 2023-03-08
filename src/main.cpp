@@ -1,125 +1,139 @@
-#include "M5Atom.h"
-#include <math.h>
+/*
+    Description: 
+    Use ATOM DTU LoRaWAN to connect to the Gateway by OTAA mode, and implement subscription and publishing messages.
+    Before use, please configure the device information, receiving window, frequency band mask and other information according to the actual connected network.
+    Please install library before compiling:  
+    FastLED: https://github.com/FastLED/FastLED
+    M5Atom: https://github.com/m5stack/M5Atom
+*/
+
 #include "ATOM_DTU_LoRaWAN.h"
+#include "M5Atom.h"
 
-// sudo chmod a+rw /dev/ttyUSB0
+ATOM_DTU_LoRaWAN LoRaWAN;
+String response;
 
-float acc0[] = {0.0f, 0.0f, 0.0f};
-float acc[] = {0.0f, 0.0f, 0.0f};
-float prevAcc[] = {0.0f, 0.0f, 0.0f};
+typedef enum {
+    kError = 0,
+    kConnecting,
+    kConnected, 
+    kSending
+} DTUState_t;
 
-unsigned long lastTime = 0;
-int vectorCounter = 0;
-float vectors[] = {0.0f, 0.0f, 0.0f};
+DTUState_t State = kConnecting;
 
-int accelerations = 0;
-int steps = 0;
+void setup()
+{
+    M5.begin(true, true, true);
+    //InIt
+    LoRaWAN.Init();
+    //Reset Module
+    Serial.print("Module Rerest.....");
+    LoRaWAN.writeCMD("AT+ILOGLVL=5\r\n");
+    LoRaWAN.writeCMD("AT+CSAVE\r\n");
+    LoRaWAN.writeCMD("AT+IREBOOT=0\r\n");
+    delay(5000);
 
-float dotProduct(float A[], float B[], int n) {
-  float result = 0.0;
-  for (int i = 0; i < n; i++) {
-    result += A[i] * B[i];
-  }
-  return result;
-}
+    LoRaWAN.configOTTA(
+        "70b3d57ed005b3b8",//Device EUI
+        "0000000000000000",//APP EUI
+        "6D391AB343CB01BADFC8ACC0C3083B04",//APP KEY
+        "2"//Upload Download Mode
+    );
 
-float magnitude(float A[], int n) {
-  float result = 0.0;
-  for (int i = 0; i < n; i++) {
-    result += A[i] * A[i];
-  }
-  return sqrt(result);
-}
+    response = LoRaWAN.waitMsg(1000);
+    Serial.println(response);
+    
+    //Set Class Mode 
+    LoRaWAN.setClass("2");
 
-float angleBetweenVectors(float A[], float B[], int n) {
-  float dot = dotProduct(A, B, n);
-  float magA = magnitude(A, n);
-  float magB = magnitude(B, n);
-  float cosTheta = dot / (magA * magB);
-  return acos(cosTheta) * 180.0 / PI;
-}
+    LoRaWAN.writeCMD("AT+CWORKMODE=2\r\n");
 
-void projectVector(float A[], float B[], int n, float C[]) {
-  float dot = dotProduct(A, B, n);
-  float magB = magnitude(B, n);
-  float scale = dot / (magB * magB);
-  for (int i = 0; i < n; i++) {
-    C[i] = scale * B[i];
-  }
-}
+    //LoRaWAN470
+    // LoRaWAN.setRxWindow("505300000");
 
-void detectStep() {
-  M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
-  acc[0] = acc[0] - acc0[0];
-  acc[1] = acc[1] - acc0[1];
-  acc[2] = acc[2] - acc0[2];
-  
-  if (magnitude(acc, 3) > 0.022) {
-    // Add all measured acceleration to vectors
-    vectors[0] = acc[0];
-    vectors[1] = acc[1];
-    vectors[2] = acc[2];
-    vectorCounter++;
+    //LoRaWAN868
+    LoRaWAN.setRxWindow("869525000");
 
-    if (millis() - lastTime > 100) {
-      
-      vectors[0] = vectors[0] / vectorCounter;
-      vectors[1] = vectors[1] / vectorCounter;
-      vectors[2] = vectors[2] / vectorCounter;
+    //LoRaWAN915
+    // LoRaWAN.setRxWindow("923300000");
 
-      if (magnitude(prevAcc, 3) == 0.0f) {
-        prevAcc[0] = vectors[0];
-        prevAcc[1] = vectors[1];
-        prevAcc[2] = vectors[2];    
-      }
+    // LoRaWAN470 TX Freq
+    // 486.3
+    // 486.5
+    // 486.7
+    // 486.9
+    // 487.1
+    // 487.3
+    // 487.5
+    // 487.7
+    //MARK 0000 0100 0000 0000 | 0x0400
+    // LoRaWAN.setFreqMask("0400");
 
-      float projection[3] = {0.0f, 0.0f, 0.0f};
-      // Here
-      projectVector(prevAcc, acc, 3, projection);
 
-      // Here
-      unsigned int angle = round(angleBetweenVectors(acc, prevAcc, 3));
-      float projectionMag = magnitude(projection, 3);
-      
-      if (angle > 120 && projectionMag > 0.014) {
-        // Here
-        // Serial.printf("Projection: %f\n", projectionMag);
-        prevAcc[0] = acc[0];
-        prevAcc[1] = acc[1];
-        prevAcc[2] = acc[2];   
+    // LoRaWAN868 TX Freq
+    // 868.1 - SF7BW125 to SF12BW125
+    // 868.3 - SF7BW125 to SF12BW125 and SF7BW250
+    // 868.5 - SF7BW125 to SF12BW125
+    // 867.1 - SF7BW125 to SF12BW125
+    // 867.3 - SF7BW125 to SF12BW125
+    // 867.5 - SF7BW125 to SF12BW125
+    // 867.7 - SF7BW125 to SF12BW125
+    // 867.9 - SF7BW125 to SF12BW125
+    // 868.8 - FSK
+    LoRaWAN.setFreqMask("0001");
 
-        accelerations++;
-        steps = accelerations / 2;
+    // LoRaWAN915 TX Freq
+    // 902.3
+    // 902.5
+    // 902.7
+    // 902.9
+    // 903.1
+    // 903.3
+    // 903.5
+    // 903.7
+    //MARK 0000 0000 0000 0001 | 0x001
+    // LoRaWAN.setFreqMask("0001");
 
-        if (accelerations % 2 == 0) {
-          Serial.printf("%u steps\n", steps);
+    delay(100);
+    // response = LoRaWAN.waitMsg(1000);
+    // Serial.println(response);
+    LoRaWAN.startJoin();
+    Serial.print("Start Join.....");
+    while(1){
+        response = LoRaWAN.waitMsg(1000);
+        Serial.println(response);
+        if(response.indexOf("+CJOIN:") != -1) {
+            State = kConnected;
+            break;
+        }else if(response.indexOf("ERROR") != -1){
+            State = kError;
+            Serial.print("Join ERROR.");
+            ESP.restart();
         }
-      
-        delay(200);            
-      }
-
-      vectorCounter = 0;
-      lastTime = millis();
     }
-  }
+    delay(2000);
 }
 
-void setup(){
-  M5.begin(true, false, true);
-  delay(100);
-  M5.IMU.Init();
-  delay(100);
-  M5.IMU.SetAccelFsr(M5.IMU.AFS_16G);
-  delay(100);
+void loop()
+{
 
-  M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
-  acc0[0] = acc[0];
-  acc0[1] = acc[1];
-  acc0[2] = acc[2]; 
-
-  lastTime = millis();
-}
-
-void loop() {
-  detectStep();
+    //send data
+    LoRaWAN.sendMsg(1,15,7,"aaaaaaa");
+    while(1) {
+        State = kSending;
+        response = LoRaWAN.waitMsg(1000);
+        Serial.println(response);
+        if(response.indexOf("OK") != -1) {
+            break;
+        }else if(response.indexOf("ERR") != -1){
+            State = kError;
+            break;
+        }
+    }
+    delay(3000);
+    //receive data
+    response = LoRaWAN.receiveMsg();
+    Serial.print(response+"    //receive data\r\n");
+    delay(3000);
 }
