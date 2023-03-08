@@ -1,12 +1,3 @@
-/*
-    Description: 
-    Use ATOM DTU LoRaWAN to connect to the Gateway by OTAA mode, and implement subscription and publishing messages.
-    Before use, please configure the device information, receiving window, frequency band mask and other information according to the actual connected network.
-    Please install library before compiling:  
-    FastLED: https://github.com/FastLED/FastLED
-    M5Atom: https://github.com/m5stack/M5Atom
-*/
-
 #include "ATOM_DTU_LoRaWAN.h"
 #include "M5Atom.h"
 
@@ -49,27 +40,8 @@ void setup()
 
     LoRaWAN.writeCMD("AT+CWORKMODE=2\r\n");
 
-    //LoRaWAN470
-    // LoRaWAN.setRxWindow("505300000");
-
     //LoRaWAN868
     LoRaWAN.setRxWindow("869525000");
-
-    //LoRaWAN915
-    // LoRaWAN.setRxWindow("923300000");
-
-    // LoRaWAN470 TX Freq
-    // 486.3
-    // 486.5
-    // 486.7
-    // 486.9
-    // 487.1
-    // 487.3
-    // 487.5
-    // 487.7
-    //MARK 0000 0100 0000 0000 | 0x0400
-    // LoRaWAN.setFreqMask("0400");
-
 
     // LoRaWAN868 TX Freq
     // 868.1 - SF7BW125 to SF12BW125
@@ -83,18 +55,6 @@ void setup()
     // 868.8 - FSK
     LoRaWAN.setFreqMask("0001");
 
-    // LoRaWAN915 TX Freq
-    // 902.3
-    // 902.5
-    // 902.7
-    // 902.9
-    // 903.1
-    // 903.3
-    // 903.5
-    // 903.7
-    //MARK 0000 0000 0000 0001 | 0x001
-    // LoRaWAN.setFreqMask("0001");
-
     delay(100);
     // response = LoRaWAN.waitMsg(1000);
     // Serial.println(response);
@@ -105,6 +65,7 @@ void setup()
         Serial.println(response);
         if(response.indexOf("+CJOIN:") != -1) {
             State = kConnected;
+            Serial.println("Join OK.");
             break;
         }else if(response.indexOf("ERROR") != -1){
             State = kError;
