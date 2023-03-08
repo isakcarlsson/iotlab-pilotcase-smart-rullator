@@ -2,10 +2,9 @@
 #include <math.h>
 
 #define HALL 32
-int value = 1;
-int cycle = 0;
-int check = 0;
-int wheel_size = 62;
+#define WHEEL_SIZE 62
+
+// int wheel_size = 62;
 int distance = 0;
 
 // sudo chmod a+rw /dev/ttyUSB0
@@ -55,10 +54,10 @@ void projectVector(float A[], float B[], int n, float C[]) {
 }
 
 void send () {
-  M5.dis.drawpix(0, 0x00ff00);
+  M5.dis.fillpix(0x00ff00);
 }
 
-void accel(void * pvParameters) {
+void step_counter(void * pvParameters) {
    while (distance < 1000) {
     M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
     acc[0] = acc[0] - acc0[0];
@@ -89,7 +88,7 @@ void accel(void * pvParameters) {
         unsigned int angle = round(angleBetweenVectors(acc, prevAcc, 3));
         float projectionMag = magnitude(projection, 3);
         
-        if (angle > 120 && projectionMag > 0.014) {
+        if (angle > 90 && projectionMag > 0.014) {
           prevAcc[0] = acc[0];
           prevAcc[1] = acc[1];
           prevAcc[2] = acc[2];   
@@ -114,27 +113,32 @@ void accel(void * pvParameters) {
 
 
 void hall(void * pvParameters) {
+  int value = 1;
+  int cycle = -1;
+
   while (distance < 1000) {
     value = digitalRead(HALL);
 
     if (value == 0) {
-      if (check == 0) {
-        if (cycle == 0) {
-          xTaskCreatePinnedToCore(accel, "accel", 4096, NULL, 5, NULL, 0);
-        }
-        check = 1;
+     
+      if (cycle == 0) {
         cycle++;
-        Serial.printf("cycle:%d\n", cycle);
-        vTaskDelay(pdMS_TO_TICKS(100));
-        distance = cycle * wheel_size;
+        xTaskCreatePinnedToCore(step_counter, "step_counter", 4096, NULL, 5, NULL, 0);
+      } else {
+        cycle++;
+        distance = cycle * WHEEL_SIZE;
+
+        while (digitalRead(HALL) == 0) {
+          vTaskDelay(pdMS_TO_TICKS(50));
+        }
+
       }
-    } 
-    else {
-      check = 0;
     }
   }
+  send();
   vTaskDelete(NULL);
 }
+
 
 void setup() {
   M5.begin(true,false,true);
@@ -150,9 +154,5 @@ void setup() {
   acc0[2] = acc[2]; 
   lastTime = millis();
 
-  xTaskCreatePinnedToCore(hall, "hall", 4096, NULL, 5, NULL, 1);
-
-}
-
-void loop() {
+  xTaskCreatePinnedToCore(hall, "hall", 4096, NULL, 1, NULL, 1);
 }
