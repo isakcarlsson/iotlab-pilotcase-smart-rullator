@@ -1,5 +1,12 @@
 #include "M5Atom.h"
 #include <math.h>
+#include "lorasend.h"
+
+#define HALL 32
+#define WHEEL_SIZE 62
+
+// int wheel_size = 62;
+int distance = 0;
 
 #define HALL 32
 #define WHEEL_SIZE 62
@@ -54,6 +61,7 @@ void projectVector(float A[], float B[], int n, float C[]) {
     C[i] = scale * B[i];
   }
 }
+
 
 void send (float time) {
   M5.dis.fillpix(0x00ff00);
@@ -128,6 +136,7 @@ void hall(void * pvParameters) {
      
       if (cycle == 0) {
         cycle++;
+
         hasStarted = 1;
         startTime = millis();
       } else {
@@ -163,6 +172,9 @@ void setup() {
   acc0[1] = acc[1];
   acc0[2] = acc[2]; 
   lastTime = millis();
+
+  //sendData("0001070002020303");
+
   M5.dis.fillpix(0xffff00);
   delay(100);
 
@@ -176,3 +188,4 @@ void setup() {
 }
 
 void loop() {}
+
