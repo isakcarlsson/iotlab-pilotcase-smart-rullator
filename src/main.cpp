@@ -1,5 +1,6 @@
 #include "M5Atom.h"
 #include <math.h>
+#include "ATOM_DTU_LoRaWAN.h"
 
 // sudo chmod a+rw /dev/ttyUSB0
 
