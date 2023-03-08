@@ -1,100 +1,164 @@
-#include "ATOM_DTU_LoRaWAN.h"
 #include "M5Atom.h"
+#include <math.h>
+#include "lorasend.h"
 
-ATOM_DTU_LoRaWAN LoRaWAN;
-String response;
+#define HALL 32
+#define WHEEL_SIZE 62
 
-typedef enum {
-    kError = 0,
-    kConnecting,
-    kConnected, 
-    kSending
-} DTUState_t;
+// int wheel_size = 62;
+int distance = 0;
 
-DTUState_t State = kConnecting;
+// sudo chmod a+rw /dev/ttyUSB0
 
-void setup()
-{
-    M5.begin(true, true, true);
-    //InIt
-    LoRaWAN.Init();
-    //Reset Module
-    Serial.print("Module Rerest.....");
-    LoRaWAN.writeCMD("AT+ILOGLVL=5\r\n");
-    LoRaWAN.writeCMD("AT+CSAVE\r\n");
-    LoRaWAN.writeCMD("AT+IREBOOT=0\r\n");
-    delay(5000);
+float acc0[] = {0.0f, 0.0f, 0.0f};
+float acc[] = {0.0f, 0.0f, 0.0f};
+float prevAcc[] = {0.0f, 0.0f, 0.0f};
 
-    LoRaWAN.configOTTA(
-        "70b3d57ed005b3b8",//Device EUI
-        "0000000000000000",//APP EUI
-        "6D391AB343CB01BADFC8ACC0C3083B04",//APP KEY
-        "2"//Upload Download Mode
-    );
+unsigned long lastTime = 0;
+int vectorCounter = 0;
+float vectors[] = {0.0f, 0.0f, 0.0f};
 
-    response = LoRaWAN.waitMsg(1000);
-    Serial.println(response);
+int accelerations = 0;
+int steps = 0;
+
+float dotProduct(float A[], float B[], int n) {
+  float result = 0.0;
+  for (int i = 0; i < n; i++) {
+    result += A[i] * B[i];
+  }
+  return result;
+}
+
+float magnitude(float A[], int n) {
+  float result = 0.0;
+  for (int i = 0; i < n; i++) {
+    result += A[i] * A[i];
+  }
+  return sqrt(result);
+}
+
+float angleBetweenVectors(float A[], float B[], int n) {
+  float dot = dotProduct(A, B, n);
+  float magA = magnitude(A, n);
+  float magB = magnitude(B, n);
+  float cosTheta = dot / (magA * magB);
+  return acos(cosTheta) * 180.0 / PI;
+}
+
+void projectVector(float A[], float B[], int n, float C[]) {
+  float dot = dotProduct(A, B, n);
+  float magB = magnitude(B, n);
+  float scale = dot / (magB * magB);
+  for (int i = 0; i < n; i++) {
+    C[i] = scale * B[i];
+  }
+}
+
+void send () {
+  M5.dis.fillpix(0x00ff00);
+}
+
+void step_counter(void * pvParameters) {
+   while (distance < 1000) {
+    M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
+    acc[0] = acc[0] - acc0[0];
+    acc[1] = acc[1] - acc0[1];
+    acc[2] = acc[2] - acc0[2];
     
-    //Set Class Mode 
-    LoRaWAN.setClass("2");
+    if (magnitude(acc, 3) > 0.022) {
+      vectors[0] = acc[0];
+      vectors[1] = acc[1];
+      vectors[2] = acc[2];
+      vectorCounter++;
 
-    LoRaWAN.writeCMD("AT+CWORKMODE=2\r\n");
+      if (millis() - lastTime > 100) {
+        
+        vectors[0] = vectors[0] / vectorCounter;
+        vectors[1] = vectors[1] / vectorCounter;
+        vectors[2] = vectors[2] / vectorCounter;
 
-    //LoRaWAN868
-    LoRaWAN.setRxWindow("869525000");
-
-    // LoRaWAN868 TX Freq
-    // 868.1 - SF7BW125 to SF12BW125
-    // 868.3 - SF7BW125 to SF12BW125 and SF7BW250
-    // 868.5 - SF7BW125 to SF12BW125
-    // 867.1 - SF7BW125 to SF12BW125
-    // 867.3 - SF7BW125 to SF12BW125
-    // 867.5 - SF7BW125 to SF12BW125
-    // 867.7 - SF7BW125 to SF12BW125
-    // 867.9 - SF7BW125 to SF12BW125
-    // 868.8 - FSK
-    LoRaWAN.setFreqMask("0001");
-
-    delay(100);
-    // response = LoRaWAN.waitMsg(1000);
-    // Serial.println(response);
-    LoRaWAN.startJoin();
-    Serial.print("Start Join.....");
-    while(1){
-        response = LoRaWAN.waitMsg(1000);
-        Serial.println(response);
-        if(response.indexOf("+CJOIN:") != -1) {
-            State = kConnected;
-            Serial.println("Join OK.");
-            break;
-        }else if(response.indexOf("ERROR") != -1){
-            State = kError;
-            Serial.print("Join ERROR.");
-            ESP.restart();
+        if (magnitude(prevAcc, 3) == 0.0f) {
+          prevAcc[0] = vectors[0];
+          prevAcc[1] = vectors[1];
+          prevAcc[2] = vectors[2];    
         }
+
+        float projection[3] = {0.0f, 0.0f, 0.0f};
+        projectVector(prevAcc, acc, 3, projection);
+
+        unsigned int angle = round(angleBetweenVectors(acc, prevAcc, 3));
+        float projectionMag = magnitude(projection, 3);
+        
+        if (angle > 90 && projectionMag > 0.014) {
+          prevAcc[0] = acc[0];
+          prevAcc[1] = acc[1];
+          prevAcc[2] = acc[2];   
+
+          accelerations++;
+          steps = accelerations / 2;
+
+          if (accelerations % 2 == 0) {
+            Serial.printf("%u steps\n", steps);
+          }
+        
+          vTaskDelay(pdMS_TO_TICKS(200));
+        }
+
+        vectorCounter = 0;
+        lastTime = millis();
+      }
     }
-    delay(2000);
+  }
+  vTaskDelete(NULL);
 }
 
-void loop()
-{
 
-    //send data
-    LoRaWAN.sendMsg(1,15,7,"aaaaaaa");
-    while(1) {
-        State = kSending;
-        response = LoRaWAN.waitMsg(1000);
-        Serial.println(response);
-        if(response.indexOf("OK") != -1) {
-            break;
-        }else if(response.indexOf("ERR") != -1){
-            State = kError;
-            break;
+void hall(void * pvParameters) {
+  int value = 1;
+  int cycle = -1;
+
+  while (distance < 1000) {
+    value = digitalRead(HALL);
+
+    if (value == 0) {
+     
+      if (cycle == 0) {
+        cycle++;
+        xTaskCreatePinnedToCore(step_counter, "step_counter", 4096, NULL, 5, NULL, 0);
+      } else {
+        cycle++;
+        distance = cycle * WHEEL_SIZE;
+
+        while (digitalRead(HALL) == 0) {
+          vTaskDelay(pdMS_TO_TICKS(50));
         }
+
+      }
     }
-    delay(3000);
-    //receive data
-    response = LoRaWAN.receiveMsg();
-    Serial.print(response+"    //receive data\r\n");
-    delay(3000);
+  }
+  send();
+  vTaskDelete(NULL);
 }
+
+
+void setup() {
+  M5.begin(true,false,true);
+  delay(100);
+  M5.IMU.Init();
+  delay(100);
+  M5.IMU.SetAccelFsr(M5.IMU.AFS_16G);
+  delay(100);
+  pinMode (HALL, INPUT);
+  M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
+  acc0[0] = acc[0];
+  acc0[1] = acc[1];
+  acc0[2] = acc[2]; 
+  lastTime = millis();
+  sendata("0001070002020303");
+
+  xTaskCreatePinnedToCore(hall, "hall", 4096, NULL, 1, NULL, 1);
+}
+
+void loop() {
+
+ }
