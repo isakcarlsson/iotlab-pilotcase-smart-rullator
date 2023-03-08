@@ -8,6 +8,11 @@
 // int wheel_size = 62;
 int distance = 0;
 
+#define HALL 32
+#define WHEEL_SIZE 62
+
+int distance = 0;
+
 // sudo chmod a+rw /dev/ttyUSB0
 
 float acc0[] = {0.0f, 0.0f, 0.0f};
@@ -20,6 +25,9 @@ float vectors[] = {0.0f, 0.0f, 0.0f};
 
 int accelerations = 0;
 int steps = 0;
+
+int hasStarted = 0;
+unsigned long startTime = 0;
 
 float dotProduct(float A[], float B[], int n) {
   float result = 0.0;
@@ -54,8 +62,12 @@ void projectVector(float A[], float B[], int n, float C[]) {
   }
 }
 
-void send () {
+
+void send (float time) {
   M5.dis.fillpix(0x00ff00);
+  Serial.printf("Sending data: Time: %f Steps: %u\n", time, steps);
+  delay(5000);
+  esp_deep_sleep_start();
 }
 
 void step_counter(void * pvParameters) {
@@ -95,10 +107,10 @@ void step_counter(void * pvParameters) {
           prevAcc[2] = acc[2];   
 
           accelerations++;
-          steps = accelerations / 2;
 
           if (accelerations % 2 == 0) {
-            Serial.printf("%u steps\n", steps);
+            // Serial.printf("%u steps\n", steps);
+            steps = accelerations / 2;
           }
         
           vTaskDelay(pdMS_TO_TICKS(200));
@@ -124,7 +136,9 @@ void hall(void * pvParameters) {
      
       if (cycle == 0) {
         cycle++;
-        xTaskCreatePinnedToCore(step_counter, "step_counter", 4096, NULL, 5, NULL, 0);
+
+        hasStarted = 1;
+        startTime = millis();
       } else {
         cycle++;
         distance = cycle * WHEEL_SIZE;
@@ -136,7 +150,10 @@ void hall(void * pvParameters) {
       }
     }
   }
-  send();
+
+  float time = (millis() - startTime) / 1000.0;
+  send(time);
+
   vTaskDelete(NULL);
 }
 
@@ -144,6 +161,7 @@ void hall(void * pvParameters) {
 void setup() {
   M5.begin(true,false,true);
   delay(100);
+  M5.dis.fillpix(0xff0000);
   M5.IMU.Init();
   delay(100);
   M5.IMU.SetAccelFsr(M5.IMU.AFS_16G);
@@ -154,11 +172,20 @@ void setup() {
   acc0[1] = acc[1];
   acc0[2] = acc[2]; 
   lastTime = millis();
-  sendData("0001070002020303");
 
-  xTaskCreatePinnedToCore(hall, "hall", 4096, NULL, 1, NULL, 1);
+  //sendData("0001070002020303");
+
+  M5.dis.fillpix(0xffff00);
+  delay(100);
+
+  xTaskCreatePinnedToCore(hall, "hall", 4096, NULL, 5, NULL, 1);
+
+  while (!hasStarted) {
+    vTaskDelay(pdMS_TO_TICKS(50));
+  }
+
+  xTaskCreatePinnedToCore(step_counter, "step_counter", 4096, NULL, 6, NULL, 0);
 }
 
-void loop() {
+void loop() {}
 
- }
