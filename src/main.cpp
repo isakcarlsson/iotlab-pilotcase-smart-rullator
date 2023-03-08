@@ -154,7 +154,7 @@ void setup() {
   acc0[1] = acc[1];
   acc0[2] = acc[2]; 
   lastTime = millis();
-  sendata("0001070002020303");
+  sendData("0001070002020303");
 
   xTaskCreatePinnedToCore(hall, "hall", 4096, NULL, 1, NULL, 1);
 }

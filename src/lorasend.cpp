@@ -13,30 +13,7 @@ typedef enum {
 
 DTUState_t State = kConnecting;
 
-void test(String data)
-{
-    //send data
-
-    LoRaWAN.sendMsg(1,15,8,data);
-    while(1) {
-        State = kSending;
-        response = LoRaWAN.waitMsg(1000);
-        Serial.println(response);
-        if(response.indexOf("OK") != -1) {
-            break;
-        }else if(response.indexOf("ERR") != -1){
-            State = kError;
-            break;
-        }
-    }
-    delay(3000);
-    //receive data
-    response = LoRaWAN.receiveMsg();
-    Serial.print(response+"    //receive data\r\n");
-    delay(3000);
-}
-
-void sendata(String data)
+void sendData(String data)
 {
     M5.begin(true, true, true);
     //InIt
@@ -66,39 +43,40 @@ void sendata(String data)
     //LoRaWAN868
     LoRaWAN.setRxWindow("869525000");
 
-    // LoRaWAN868 TX Freq
-    // 868.1 - SF7BW125 to SF12BW125
-    // 868.3 - SF7BW125 to SF12BW125 and SF7BW250
-    // 868.5 - SF7BW125 to SF12BW125
-    // 867.1 - SF7BW125 to SF12BW125
-    // 867.3 - SF7BW125 to SF12BW125
-    // 867.5 - SF7BW125 to SF12BW125
-    // 867.7 - SF7BW125 to SF12BW125
-    // 867.9 - SF7BW125 to SF12BW125
-    // 868.8 - FSK
     LoRaWAN.setFreqMask("0001");
 
     delay(100);
-    // response = LoRaWAN.waitMsg(1000);
-    // Serial.println(response);
+    
+
     LoRaWAN.startJoin();
     Serial.print("Start Join.....");
+
     while(1){
         response = LoRaWAN.waitMsg(1000);
-        Serial.println(response);
-        if(response.indexOf("+CJOIN:") != -1) {
+        
+        if (response.indexOf("+CJOIN:") != -1) {
             State = kConnected;
             Serial.println("Join OK.");
             break;
-        }else if(response.indexOf("ERROR") != -1){
+        } else if (response.indexOf("ERROR") != -1) {
             State = kError;
             Serial.print("Join ERROR.");
             ESP.restart();
         }
     }
-    delay(2000);
-    for (size_t i = 0; i < 2; i++)
-    {
-        test(data);
-    }    
+
+    delay(6000);
+    LoRaWAN.sendMsg(1,15,8,data);
+
+    while(1) {
+        State = kSending;
+        response = LoRaWAN.waitMsg(1000);
+        Serial.println(response);
+        if(response.indexOf("OK") != -1) {
+            break;
+        }else if(response.indexOf("ERR") != -1){
+            State = kError;
+            break;
+        }
+    }
 }
