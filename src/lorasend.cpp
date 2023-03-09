@@ -47,7 +47,7 @@ void sendData(String data) {
     LoRaWAN.startJoin();
     Serial.print("Start Join.....");
 
-    while(1){
+    while(1) {
         response = LoRaWAN.waitMsg(1000);
         
         if (response.indexOf("+CJOIN:") != -1) {

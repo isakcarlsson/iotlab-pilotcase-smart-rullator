@@ -14,10 +14,6 @@ float acc0[] = {0.0f, 0.0f, 0.0f};
 float acc[] = {0.0f, 0.0f, 0.0f};
 float prevAcc[] = {0.0f, 0.0f, 0.0f};
 
-unsigned long lastTime = 0;
-int vectorCounter = 0;
-float vectors[] = {0.0f, 0.0f, 0.0f};
-
 int accelerations = 0;
 int steps = 0;
 
@@ -79,62 +75,54 @@ void send () {
   sendData(bytes);
 
   M5.dis.fillpix(0x000000);
-  delay(500);
+  delay(100);
   esp_deep_sleep_start();
 }
 
 void step_counter(void * pvParameters) {
 
    while (distance < 1000) {
+    // Get acceleration data
     M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
     acc[0] = acc[0] - acc0[0];
     acc[1] = acc[1] - acc0[1];
     acc[2] = acc[2] - acc0[2];
     
+    // Check if acceleration is above threshold
     if (magnitude(acc, 3) > 0.022) {
-      vectors[0] = acc[0];
-      vectors[1] = acc[1];
-      vectors[2] = acc[2];
-      vectorCounter++;
 
-      if (millis() - lastTime > 100) {
-        
-        vectors[0] = vectors[0] / vectorCounter;
-        vectors[1] = vectors[1] / vectorCounter;
-        vectors[2] = vectors[2] / vectorCounter;
-
-        if (magnitude(prevAcc, 3) == 0.0f) {
-          prevAcc[0] = vectors[0];
-          prevAcc[1] = vectors[1];
-          prevAcc[2] = vectors[2];    
-        }
-
-        float projection[3] = {0.0f, 0.0f, 0.0f};
-        projectVector(prevAcc, acc, 3, projection);
-
-        unsigned int angle = round(angleBetweenVectors(acc, prevAcc, 3));
-        float projectionMag = magnitude(projection, 3);
-        
-        if (angle > 90 && projectionMag > 0.014) {
-          prevAcc[0] = acc[0];
-          prevAcc[1] = acc[1];
-          prevAcc[2] = acc[2];   
-
-          accelerations++;
-
-          if (accelerations % 2 == 0) {
-            steps = accelerations / 2;
-            Serial.printf("%u steps\n", steps);
-          }
-        
-          vTaskDelay(pdMS_TO_TICKS(200));
-        }
-
-        vectorCounter = 0;
-        lastTime = millis();
+      // Check if previous acceleration is zero
+      if (magnitude(prevAcc, 3) == 0.0f) {
+        prevAcc[0] = acc[0];
+        prevAcc[1] = acc[1];
+        prevAcc[2] = acc[2];    
       }
+
+      float projection[3] = {0.0f, 0.0f, 0.0f};
+      projectVector(prevAcc, acc, 3, projection);
+
+      unsigned int angle = round(angleBetweenVectors(acc, prevAcc, 3));
+      float projectionMag = magnitude(projection, 3);
+      
+      // Check if angle is greater than 90 degrees and projection is above threshold
+      if (angle > 90 && projectionMag > 0.012) {
+        prevAcc[0] = acc[0];
+        prevAcc[1] = acc[1];
+        prevAcc[2] = acc[2];   
+
+        accelerations++;
+
+        if (accelerations % 2 == 0) {
+          steps = accelerations / 2;
+          Serial.printf("%u steps\n", steps);
+        }
+      
+        vTaskDelay(pdMS_TO_TICKS(200));
+      }
+      vTaskDelay(pdMS_TO_TICKS(100));
     }
   }
+
   vTaskDelete(NULL);
 }
 
@@ -181,8 +169,6 @@ void setup() {
   acc0[0] = acc[0];
   acc0[1] = acc[1];
   acc0[2] = acc[2]; 
-
-  lastTime = millis();
 
   M5.dis.fillpix(0xffff00);
   delay(100);
