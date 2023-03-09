@@ -10,6 +10,6 @@
 
 
 // Declare function to send LoRa data
-void sendata(String data);
+void sendData(String data);
 
 #endif // LORASEND_H

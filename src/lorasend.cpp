@@ -13,15 +13,13 @@ typedef enum {
 
 DTUState_t State = kConnecting;
 
-void sendData(String data)
-{
+void sendData(String data) {
     M5.begin(true, true, true);
     //InIt
     LoRaWAN.Init();
+
     //Reset Module
-    Serial.print("Module Rerest.....");
-    LoRaWAN.writeCMD("AT+ILOGLVL=5\r\n");
-    LoRaWAN.writeCMD("AT+CSAVE\r\n");
+    LoRaWAN.writeCMD("AT+ILOGLVL=0\r\n");
     LoRaWAN.writeCMD("AT+IREBOOT=0\r\n");
     delay(2000);
 
@@ -33,7 +31,6 @@ void sendData(String data)
     );
 
     response = LoRaWAN.waitMsg(1000);
-    Serial.println(response);
     
     //Set Class Mode 
     LoRaWAN.setClass("2");
@@ -47,7 +44,6 @@ void sendData(String data)
 
     delay(100);
     
-
     LoRaWAN.startJoin();
     Serial.print("Start Join.....");
 
@@ -70,7 +66,7 @@ void sendData(String data)
 
     while(1) {
         State = kSending;
-        response = LoRaWAN.waitMsg(1000);
+        response = LoRaWAN.waitMsg(3000);
         Serial.println(response);
         if(response.indexOf("OK") != -1) {
             break;

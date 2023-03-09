@@ -1,17 +1,12 @@
 #include "M5Atom.h"
 #include <math.h>
 #include "lorasend.h"
+#include "string.h"
 
 #define HALL 32
 #define WHEEL_SIZE 62
 
-// int wheel_size = 62;
-int distance = 0;
-
-#define HALL 32
-#define WHEEL_SIZE 62
-
-int distance = 0;
+int distance = 1001;
 
 // sudo chmod a+rw /dev/ttyUSB0
 
@@ -24,10 +19,12 @@ int vectorCounter = 0;
 float vectors[] = {0.0f, 0.0f, 0.0f};
 
 int accelerations = 0;
-int steps = 0;
+int steps = 17;
 
 int hasStarted = 0;
+int hasStopped = 0;
 unsigned long startTime = 0;
+int time_ = 0;
 
 float dotProduct(float A[], float B[], int n) {
   float result = 0.0;
@@ -63,10 +60,26 @@ void projectVector(float A[], float B[], int n, float C[]) {
 }
 
 
-void send (float time) {
+void send () {
   M5.dis.fillpix(0x00ff00);
-  Serial.printf("Sending data: Time: %f Steps: %u\n", time, steps);
-  delay(5000);
+  Serial.printf("Sending data: Time: %i Steps: %i\n", time_, steps);
+
+  char steps_bytes[5];
+  sprintf(steps_bytes, "%04x", steps);
+
+  char time_bytes[9];
+  sprintf(time_bytes, "%08x", time_);
+
+  char distance_bytes[5];
+  sprintf(distance_bytes, "%04x", distance);
+
+  String bytes = String(steps_bytes) + String(time_bytes) + String(distance_bytes);
+  Serial.print(bytes + "\n");
+
+  sendData(bytes);
+
+  M5.dis.fillpix(0x000000);
+  delay(500);
   esp_deep_sleep_start();
 }
 
@@ -109,8 +122,8 @@ void step_counter(void * pvParameters) {
           accelerations++;
 
           if (accelerations % 2 == 0) {
-            // Serial.printf("%u steps\n", steps);
             steps = accelerations / 2;
+            // Serial.printf("%u steps\n", steps);
           }
         
           vTaskDelay(pdMS_TO_TICKS(200));
@@ -151,8 +164,9 @@ void hall(void * pvParameters) {
     }
   }
 
-  float time = (millis() - startTime) / 1000.0;
-  send(time);
+  time_ = millis() - startTime;
+  time_ = 22341;
+  hasStopped = 1;
 
   vTaskDelete(NULL);
 }
@@ -173,18 +187,22 @@ void setup() {
   acc0[2] = acc[2]; 
   lastTime = millis();
 
-  //sendData("0001070002020303");
-
   M5.dis.fillpix(0xffff00);
   delay(100);
 
   xTaskCreatePinnedToCore(hall, "hall", 4096, NULL, 5, NULL, 1);
 
-  while (!hasStarted) {
+  while (hasStarted) {
     vTaskDelay(pdMS_TO_TICKS(50));
   }
 
   xTaskCreatePinnedToCore(step_counter, "step_counter", 4096, NULL, 6, NULL, 0);
+
+  while (!hasStopped) {
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+
+  send();
 }
 
 void loop() {}
