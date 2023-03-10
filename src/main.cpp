@@ -7,6 +7,7 @@
 #define WHEEL_SIZE 62
 
 int distance = 0;
+int test_distance = 990;
 
 // sudo chmod a+rw /dev/ttyUSB0
 
@@ -81,7 +82,7 @@ void send () {
 
 void step_counter(void * pvParameters) {
 
-   while (distance < 1000) {
+   while (distance < test_distance) {
     // Get acceleration data
     M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
     acc[0] = acc[0] - acc0[0];
@@ -129,7 +130,7 @@ void step_counter(void * pvParameters) {
 
 void hall(void * pvParameters) {
 
-  while (distance < 1000) {
+  while (distance < test_distance) {
     int value = digitalRead(HALL);
 
     if (value == 0) {
@@ -162,7 +163,7 @@ void setup() {
   delay(100);
   M5.IMU.SetAccelFsr(M5.IMU.AFS_16G);
   delay(100);
-  pinMode (HALL, INPUT);
+  pinMode(HALL, INPUT);
 
   // Get initial acceration to calibrate accelerometer
   M5.IMU.getAccelData(&acc[0], &acc[1], &acc[2]);
